@@ -6,13 +6,13 @@
 #include <time.h>
 #include <string.h>
 
-RgbColor rgb_black() {
-  RgbColor result = {0};
+PpmColor rgb_black() {
+  PpmColor result = {0};
   return result;
 }
 
-RgbColor rgb_white() {
-  RgbColor result = {255, 255, 255};
+PpmColor rgb_white() {
+  PpmColor result = {255, 255, 255};
   return result;
 }
 
@@ -20,8 +20,8 @@ PixelMap *pixel_map_new(int width, int height) {
   PixelMap *ppm_file = malloc(sizeof(PixelMap));
   ppm_file->width = width;
   ppm_file->height = height;
-  ppm_file->data = malloc(width * height * sizeof(RgbColor));
-  memset(ppm_file->data, 0, width * height * sizeof(RgbColor));
+  ppm_file->data = malloc(width * height * sizeof(PpmColor));
+  memset(ppm_file->data, 0, width * height * sizeof(PpmColor));
 
   return ppm_file;
 }
@@ -33,7 +33,7 @@ void pixel_map_destroy(PixelMap *f) {
 
 // Writes value to PixelMap
 // Returns 1 if success, 0 if invalid x y
-int pixel_map_put(PixelMap *this, int x, int y, RgbColor value) {
+int pixel_map_put(PixelMap *this, int x, int y, PpmColor value) {
   int pos = x + y * this->width;
   if (pos < this->width * this->height) {
     this->data[pos] = value;
@@ -43,12 +43,12 @@ int pixel_map_put(PixelMap *this, int x, int y, RgbColor value) {
 }
 
 // Returns value located at x y pixel in PixelMap, 0 if invalid x y
-RgbColor pixel_map_get(PixelMap *this, int x, int y) {
+PpmColor pixel_map_get(PixelMap *this, int x, int y) {
   int pos = x + y * this->width;
   if (pos < this->width * this->height)
     return this->data[pos];
 
-  RgbColor empty = {.r = 0, .g = 0, .b = 0};
+  PpmColor empty = {.r = 0, .g = 0, .b = 0};
   return empty;
 }
 
@@ -73,7 +73,7 @@ int pixel_map_write_to_ppm(PixelMap *this, const char *output_filename) {
 
   write_header(this, output_file);
   for (int i = 0; i < this->width * this->height; i++) {
-    RgbColor c = this->data[i];
+    PpmColor c = this->data[i];
     fprintf(output_file, "%d %d %d\n", c.r, c.g, c.b);
   }
   int rc = fclose(output_file);
