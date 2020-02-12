@@ -60,8 +60,8 @@ static int read_sphere(Scene *scene, const char *body, Color *curr_color) {
   Vec3 center;
   double radius;
   char sent;
-  int rc =
-      sscanf(body, "%lf %lf %lf %lf%c\n", &center.x, &center.y, &center.z, &radius, &sent);
+  int rc = sscanf(body, "%lf %lf %lf %lf%c\n", &center.x, &center.y, &center.z,
+                  &radius, &sent);
 
   if (rc != 4)
     return INVALID_FORMAT;
@@ -75,29 +75,74 @@ static int read_sphere(Scene *scene, const char *body, Color *curr_color) {
   return LINE_OK;
 }
 
-static int parse_desc_line(Scene *scene, const char *tag, const char *body) {
-  static Color curr_mlt_color;
+// Bool variables to check if parameters were passed
+typedef struct SceneConfig {
+  char eye;
+  char viewdir;
+  char updir;
+  char hfov;
+  char imsize;
+  char bkgcolor;
+  char mltcolor;
+  char object;
+} SceneConfig;
+
+#define VERIFY_CONFIG(cfg, param)                                              \
+  do {                                                                         \
+    if ((cfg)->param == 0) {                                                   \
+      fprintf(stderr, "required scene parameter '" #param "' not specified");  \
+      return 0;                                                                \
+    }                                                                          \
+  } while (0)
+
+static int scene_verify_valid(Scene *scene, SceneConfig *config) {
+  VERIFY_CONFIG(config, eye);
+  VERIFY_CONFIG(config, viewdir);
+  VERIFY_CONFIG(config, updir);
+  VERIFY_CONFIG(config, hfov);
+  VERIFY_CONFIG(config, imsize);
+  VERIFY_CONFIG(config, bkgcolor);
+  VERIFY_CONFIG(config, object);
+  return 1;
+}
+
+static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
+                           const char *body) {
+  static Color curr_mlt_color = {};
   char sent;
 
   int rc = 0;
-  if (strcmp(tag, "eye") == 0)
+  if (strcmp(tag, "eye") == 0) {
     rc = read_vec3(body, &scene->eye);
-  else if (strcmp(tag, "viewdir") == 0)
+    config->eye = 1;
+  } else if (strcmp(tag, "viewdir") == 0) {
     rc = read_vec3(body, &scene->viewdir);
-  else if (strcmp(tag, "updir") == 0)
+    config->viewdir = 1;
+  } else if (strcmp(tag, "updir") == 0) {
     rc = read_vec3(body, &scene->updir);
-  else if (strcmp(tag, "hfov") == 0)
-    rc = sscanf(body, "%lf%c", &scene->fov_h, &sent) == 1 ? LINE_OK : INVALID_FORMAT;
-  else if (strcmp(tag, "imsize") == 0)
-    rc = sscanf(body, "%d %d%c", &scene->pixel_width, &scene->pixel_height, &sent) == 2 ? LINE_OK : INVALID_FORMAT;
-  else if (strcmp(tag, "bkgcolor") == 0)
+    config->updir = 1;
+  } else if (strcmp(tag, "hfov") == 0) {
+    rc = sscanf(body, "%lf%c", &scene->fov_h, &sent) == 1 ? LINE_OK
+                                                          : INVALID_FORMAT;
+    config->hfov = 1;
+  } else if (strcmp(tag, "imsize") == 0) {
+    rc = sscanf(body, "%d %d%c", &scene->pixel_width, &scene->pixel_height,
+                &sent) == 2
+             ? LINE_OK
+             : INVALID_FORMAT;
+    config->imsize = 1;
+  } else if (strcmp(tag, "bkgcolor") == 0) {
     rc = read_color(body, &scene->bg_color);
-  else if (strcmp(tag, "mltcolor") == 0)
+    config->bkgcolor = 1;
+  } else if (strcmp(tag, "mltcolor") == 0) {
     rc = read_color(body, &curr_mlt_color);
-  else if (strcmp(tag, "sphere") == 0)
+    config->mltcolor = 1;
+  } else if (strcmp(tag, "sphere") == 0) {
     rc = read_sphere(scene, body, &curr_mlt_color);
-  else
+    config->object = 1;
+  } else {
     rc = UNRECOGNIZED_TAG;
+  }
   return rc;
 }
 
@@ -114,14 +159,14 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
   size_t line_no = 1;
   char *file_contents = read_file_contents(fdesc_file);
 
+  SceneConfig config = {0};
   char *file_pos = file_contents;
   char line[256];
   memset(line, 0, sizeof(line));
   while (1) {
     read_desc_line(file_pos, line, sizeof(line));
     size_t line_len = strlen(line);
-    if (line_len > 0)
-    {
+    if (line_len > 0) {
       char tag[32];
       memset(tag, 0, sizeof(tag));
       rc = sscanf(file_pos, "%31s", tag);
@@ -134,13 +179,13 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
       }
 
       const char *args = line + strlen(tag);
-      rc = parse_desc_line(scene, tag, args);
+      rc = parse_desc_line(scene, &config, tag, args);
       switch (rc) {
       case UNRECOGNIZED_TAG: {
-        fprintf(
-            stderr,
-            "invalid scene description file (line %zu): unrecognized tag '%s'\n",
-            line_no, tag);
+        fprintf(stderr,
+                "invalid scene description file (line %zu): unrecognized tag "
+                "'%s'\n",
+                line_no, tag);
         goto cleanup;
       }
       case INVALID_FORMAT:
@@ -158,6 +203,9 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
       break;
     file_pos += strlen(line) + 1;
   }
+
+  if (!scene_verify_valid(scene, &config))
+    rc = INVALID_FORMAT;
 
 cleanup:
   if (rc != LINE_OK) {
