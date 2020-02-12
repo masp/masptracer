@@ -16,6 +16,7 @@ typedef struct PpmColor {
 
 PpmColor rgb_black();
 PpmColor rgb_white();
+PpmColor ppm_color_from_mat(Material *mat);
 
 typedef struct PpmFile {
   int width;

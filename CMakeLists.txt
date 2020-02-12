@@ -3,7 +3,7 @@ project(raytracerproj C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_library(tracer ppm_file.c scene.c)
+add_library(tracer ppm_file.c scene.c camera.c vec.c scene_config.c)
 add_executable(masptracer main.c)
 target_link_libraries(masptracer tracer)
 

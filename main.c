@@ -1,5 +1,7 @@
 
 #include "ppm_file.h"
+#include "camera.h"
+#include "scene_config.h"
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
@@ -12,34 +14,8 @@ static const char *output_file_name;
 
 static void print_usage(const char *program_name) {
   fprintf(stderr,
-          "invalid usage: raytracer [input desc file] [-g gradient/mandel] [-o outputfile]\n");
+		  "invalid usage: raytracer [input desc file] [-g gradient/mandel] [-o outputfile]\n");
   exit(EXIT_FAILURE);
-}
-
-static void parse_args(int argc, char **argv) {
-  if (argc < 2)
-    print_usage(argv[0]);
-
-  for (int i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-g") == 0) {
-      if (++i >= argc)
-        print_usage(argv[0]);
-      gen_type = argv[i];
-    } else if (strcmp(argv[i], "-o") == 0) {
-      if (++i >= argc)
-        print_usage(argv[0]);
-      output_file_name = argv[i];
-    } else {
-      if (input_file_name)
-        print_usage(argv[0]);
-      input_file_name = argv[i];
-    }
-  }
-
-  if (!gen_type)
-    gen_type = "mandel";
-  if (!input_file_name)
-    print_usage(argv[0]);
 }
 
 // Returns the filename without the extension
@@ -52,7 +28,7 @@ static const char *get_base_filename(const char *filename) {
   int is_empty_or_just_dot = !dot || dot == filename;
   int no_dot_in_filename = last_slash && last_slash > dot;
   if (is_empty_or_just_dot || no_dot_in_filename)
-    return filename + strlen(filename);
+	return filename + strlen(filename);
   return dot;
 }
 
@@ -61,7 +37,7 @@ static const char *get_base_filename(const char *filename) {
 static char *replace_file_ext(const char *filename, const char *ext) {
   size_t new_filename_size = strlen(filename) + strlen(ext) + 1;
   char *out =
-      malloc(new_filename_size); // even if filename has no extension, space is
+	  malloc(new_filename_size); // even if filename has no extension, space is
   // available for ext and extra space
   memset(out, 0, new_filename_size);
   strncpy(out, filename, get_base_filename(filename) - filename);
@@ -70,26 +46,65 @@ static char *replace_file_ext(const char *filename, const char *ext) {
   return out;
 }
 
+static void parse_args(int argc, char **argv) {
+  if (argc < 2)
+	print_usage(argv[0]);
+
+  for (int i = 1; i < argc; i++) {
+	if (strcmp(argv[i], "-g") == 0) {
+	  if (++i >= argc)
+		print_usage(argv[0]);
+	  gen_type = argv[i];
+	} else if (strcmp(argv[i], "-o") == 0) {
+	  if (++i >= argc)
+		print_usage(argv[0]);
+	  output_file_name = argv[i];
+	} else {
+	  if (input_file_name)
+		print_usage(argv[0]);
+	  input_file_name = argv[i];
+	}
+  }
+
+  if (!gen_type)
+	gen_type = "mandel";
+  if (!input_file_name)
+	print_usage(argv[0]);
+
+  if (!output_file_name)
+	output_file_name = replace_file_ext(input_file_name, "ppm");
+}
+
 int main(int argc, char **argv) {
   parse_args(argc, argv);
 
   Scene *scene = scene_create_from_file(input_file_name);
   if (!scene)
-    return EXIT_FAILURE;
-
-  if (scene->pixel_width <= 0 || scene->pixel_height <= 0)
-  {
-    fprintf(stderr, "invalid input file: width and height must be positive non-zero integers (given %d x %d)\n", scene->pixel_width, scene->pixel_height);
-    return EXIT_FAILURE;
-  }
+	return EXIT_FAILURE;
 
   PixelMap *ppm = pixel_map_new(scene->pixel_width, scene->pixel_height);
+  Camera camera;
+  if (camera_create_from_scene(scene, &camera) != 0) {
+	fprintf(stderr, "invalid updir/viewdir combination provided, both must be non-zero and not parallel\n");
+	return EXIT_FAILURE;
+  }
+
+  for (int x = 0; x < scene->pixel_width; x++) {
+	for (int y = 0; y < scene->pixel_height; y++) {
+	  Ray ray = camera_trace_ray(&camera, x, y);
+	  Intersection *best_inter = scene_find_best_inter(scene, &ray);
+	  if (best_inter)
+	    pixel_map_put(ppm, x, y, ppm_color_from_mat(best_inter->mat));
+	  else
+	    pixel_map_put(ppm, x, y, ppm_color_from_mat(&scene->bg_color));
+	}
+  }
 
   int rc = pixel_map_write_to_ppm(ppm, output_file_name);
   if (rc != 0) {
-    fprintf(stderr, "failed to write ppm file to %s: %s\n",
-            output_file_name, strerror(rc));
-    return EXIT_FAILURE;
+	fprintf(stderr, "failed to write ppm file to %s: %s\n",
+			output_file_name, strerror(rc));
+	return EXIT_FAILURE;
   }
 
   pixel_map_destroy(ppm);

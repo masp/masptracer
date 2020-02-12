@@ -1,25 +1,24 @@
 #ifndef RAYTRACERPROJ__SCENE_DESC_H
 #define RAYTRACERPROJ__SCENE_DESC_H
 
+#include "vec.h"
 #include <stdint.h>
 #include <stddef.h>
 
-typedef struct Color {
+typedef struct Material {
   double r, g, b;
-} Color;
+} Material;
 
-typedef struct Vec2 {
-  double x, y;
-} Vec2;
-
-typedef struct Vec3 {
-  double x, y, z;
-} Vec3;
+typedef struct Intersection {
+  Vec3 pos;
+  Vec3 norm;
+  Material *mat;
+} Intersection;
 
 typedef struct Sphere {
   Vec3 center;
   double radius;
-  Color color;
+  Material *color;
 } Sphere;
 
 typedef enum {
@@ -28,7 +27,8 @@ typedef enum {
 } ObjectType;
 
 typedef struct Cylinder {
-  Vec3 base_center;
+  Vec3 center;
+  Vec3 dir;
   double radius;
   double height;
 } Cylinder;
@@ -41,21 +41,30 @@ typedef struct Object {
   ObjectType type;
 } Object;
 
+int ray_intersects_object(Ray *ray, Object *obj, Intersection *out);
+
 typedef struct Scene {
   Vec3 eye;
   Vec3 viewdir;
   Vec3 updir;
   double fov_h;
   int pixel_width, pixel_height;
-  Color bg_color;
+  Material bg_color;
+
+  Material *palette;
+  size_t palette_cap;
+  size_t palette_len;
 
   Object *objects;
   size_t objects_cap;
   size_t objects_len;
 } Scene;
 
-Scene *scene_create_from_file(const char *scene_desc_file_path);
+Material *scene_add_material(Scene *scene);
 Object *scene_add_object(Scene *scene);
+
+Intersection *scene_find_best_inter(Scene *scene, Ray *ray);
+
 void scene_destroy(Scene *s);
 
 #endif // RAYTRACERPROJ__SCENE_DESC_H
