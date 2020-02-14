@@ -32,7 +32,7 @@ typedef struct Ray {
 } Ray;
 
 Ray ray_from_line(Vec3 p0, Vec3 p1);
-Vec3 ray_pos_along_line(Ray *ray, double t);
+Vec3 ray_pos(Ray *ray, double t);
 
 
 #endif //_VEC_H_

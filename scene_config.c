@@ -103,9 +103,10 @@ static int read_cylinder(Scene *scene, const char *body, Material *curr_color) {
   new_obj->type = OBJECT_CYLINDER;
   Cylinder *new_cyl = &new_obj->cyl;
   new_cyl->center = center;
-  new_cyl->dir = dir;
+  new_cyl->dir = norm(dir);
   new_cyl->radius = radius;
   new_cyl->height = length;
+  new_cyl->color = curr_color;
   return LINE_OK;
 }
 

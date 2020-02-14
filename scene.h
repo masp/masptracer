@@ -13,6 +13,8 @@ typedef struct Intersection {
   Vec3 pos;
   Vec3 norm;
   Material *mat;
+
+  double t; // parameter along ray where intersection occurred (used for distance calc)
 } Intersection;
 
 typedef struct Sphere {
@@ -31,6 +33,7 @@ typedef struct Cylinder {
   Vec3 dir;
   double radius;
   double height;
+  Material *color;
 } Cylinder;
 
 typedef struct Object {

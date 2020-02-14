@@ -78,7 +78,7 @@ Ray ray_from_line(Vec3 p0, Vec3 p1) {
   return result;
 }
 
-Vec3 ray_pos_along_line(Ray *ray, double t) {
+Vec3 ray_pos(Ray *ray, double t) {
   Vec3 result;
   result.x = ray->pos.x + ray->dir.x * t;
   result.y = ray->pos.y + ray->dir.y * t;
