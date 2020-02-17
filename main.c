@@ -88,15 +88,19 @@ int main(int argc, char **argv) {
 	fprintf(stderr, "invalid updir/viewdir combination provided, both must be non-zero and not parallel\n");
 	return EXIT_FAILURE;
   }
+  scene->camera = &camera;
 
   for (int x = 0; x < scene->pixel_width; x++) {
 	for (int y = 0; y < scene->pixel_height; y++) {
 	  Ray ray = camera_trace_ray(&camera, x, y);
 	  Intersection *best_inter = scene_find_best_inter(scene, &ray);
 	  if (best_inter)
-	    pixel_map_put(ppm, x, y, ppm_color_from_mat(best_inter->mat));
+	  {
+		Color c = scene_shade_ray(scene, &ray, best_inter);
+		pixel_map_put(ppm, x, y, ppm_color_from_color(c));
+	  }
 	  else
-	    pixel_map_put(ppm, x, y, ppm_color_from_mat(&scene->bg_color));
+	    pixel_map_put(ppm, x, y, ppm_color_from_color(scene->bg_color));
 	}
   }
 

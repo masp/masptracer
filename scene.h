@@ -5,8 +5,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef Vec3 Color;
+
 typedef struct Material {
-  double r, g, b;
+  Color diffuse_color;
+  Color spec_color;
+  double ka, kd, ks;
+  int n;
 } Material;
 
 typedef struct Intersection {
@@ -23,11 +28,6 @@ typedef struct Sphere {
   Material *color;
 } Sphere;
 
-typedef enum {
-  OBJECT_SPHERE,
-  OBJECT_CYLINDER,
-} ObjectType;
-
 typedef struct Cylinder {
   Vec3 center;
   Vec3 dir;
@@ -35,6 +35,11 @@ typedef struct Cylinder {
   double height;
   Material *color;
 } Cylinder;
+
+typedef enum {
+  OBJECT_SPHERE,
+  OBJECT_CYLINDER,
+} ObjectType;
 
 typedef struct Object {
   union {
@@ -44,6 +49,12 @@ typedef struct Object {
   ObjectType type;
 } Object;
 
+typedef struct Light {
+  Vec3 pos;
+  int w; // directional or point (w = 0/directional, w = 1/point)
+  Color color;
+} Light;
+
 int ray_intersects_object(Ray *ray, Object *obj, Intersection *out);
 
 typedef struct Scene {
@@ -52,7 +63,8 @@ typedef struct Scene {
   Vec3 updir;
   double fov_h;
   int pixel_width, pixel_height;
-  Material bg_color;
+  Color bg_color;
+  struct Camera *camera;
 
   Material *palette;
   size_t palette_cap;
@@ -61,12 +73,18 @@ typedef struct Scene {
   Object *objects;
   size_t objects_cap;
   size_t objects_len;
+
+  Light *lights;
+  size_t lights_cap;
+  size_t lights_len;
 } Scene;
 
 Material *scene_add_material(Scene *scene);
 Object *scene_add_object(Scene *scene);
+Light *scene_add_light(Scene *scene);
 
 Intersection *scene_find_best_inter(Scene *scene, Ray *ray);
+Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in);
 
 void scene_destroy(Scene *s);
 

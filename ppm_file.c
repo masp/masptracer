@@ -16,11 +16,13 @@ PpmColor rgb_white() {
   return result;
 }
 
-PpmColor ppm_color_from_mat(Material *mat) {
+#define CLAMP(x) ((x) < 0 ? 0 : ((x) > 1 ? 1 : (x)))
+
+PpmColor ppm_color_from_color(Color color) {
   PpmColor result;
-  result.r = (uint8_t) (mat->r * 255);
-  result.g = (uint8_t) (mat->g * 255);
-  result.b = (uint8_t) (mat->b * 255);
+  result.r = (uint8_t) (CLAMP(color.x) * 255);
+  result.g = (uint8_t) (CLAMP(color.y) * 255);
+  result.b = (uint8_t) (CLAMP(color.z) * 255);
   return result;
 }
 

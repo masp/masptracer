@@ -1,10 +1,11 @@
 #include "scene.h"
+#include "scene_config.h"
 #include <CUnit/Basic.h>
 
 #define ASSERT_COLOR_EQUAL(actual, ex1, ex2, ex3)                              \
   do {                                                                         \
     CU_assertImplementation(                                                   \
-        ((actual).r == (ex1) && (actual).g == (ex2) && (actual).b == (ex3)),   \
+        ((actual).x == (ex1) && (actual).y == (ex2) && (actual).z == (ex3)),   \
         __LINE__,                                                              \
         ("ASSERT_COLOR_EQUAL(" #actual ", " #ex1 ", " #ex2 ", " #ex3 ")"),      \
         __FILE__, "", CU_FALSE);                                               \
@@ -35,7 +36,7 @@ void test_scene() {
   Sphere *sphere = &s->objects[0].sphere;
   ASSERT_VEC3_EQUAL(sphere->center, 0, 0, 1);
   CU_ASSERT_EQUAL(sphere->radius, 2);
-  ASSERT_COLOR_EQUAL(sphere->color, 1, 0, 0);
+  ASSERT_COLOR_EQUAL(sphere->color->diffuse_color, 1, 0, 0);
 }
 
 void test_empty_scene() {
