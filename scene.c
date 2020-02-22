@@ -73,12 +73,13 @@ static int cylinder_cap_inter(Cylinder *cyl, Ray *ray, int is_top,
     in->mat = cyl->color;
     in->pos = ray_pos(ray, t);
     in->t = t;
-    in->norm = dir;
+    in->norm = vecinv(dir);
   }
   return 1;
 }
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static int ray_intersects_cylinder(Ray *ray, Cylinder *cyl, Intersection *out) {
   // We detect collsion with a cylinder with a few steps following the math
@@ -112,11 +113,11 @@ static int ray_intersects_cylinder(Ray *ray, Cylinder *cyl, Intersection *out) {
   double t_cyl1 = (-B - sqrt(discriminant)) / (2 * A);
   double t_cyl2 = (-B + sqrt(discriminant)) / (2 * A);
   if (t_cyl1 < 0 || !in_cylinder(cyl, ray_pos(ray, t_cyl1)))
-    t_cyl1 = -1;
+    t_cyl1 = INFINITY;
   if (t_cyl2 < 0 || !in_cylinder(cyl, ray_pos(ray, t_cyl2)))
-    t_cyl2 = -1;
+    t_cyl2 = INFINITY;
 
-  double best_t = MAX(t_cyl1, t_cyl2);
+  double best_t = MIN(t_cyl1, t_cyl2);
   if (best_t > 0) {
     out->pos = ray_pos(ray, best_t);
     Vec3 dist_from_center = vecsub(out->pos, cyl->center);
@@ -144,27 +145,25 @@ int ray_intersects_object(Ray *ray, Object *obj, Intersection *out) {
   return 0;
 }
 
-Intersection *scene_find_best_inter(Scene *scene, Ray *ray) {
-  static Intersection best;
-  Intersection *ret = NULL;
+Intersection scene_find_best_inter(Scene *scene, Ray *ray) {
+  Intersection best;
+  best.t = INFINITY;
 
   for (int oid = 0; oid < scene->objects_len; oid++) {
     Object *obj = &scene->objects[oid];
-    Intersection inter;
+    Intersection inter = {0};
     if (ray_intersects_object(ray, obj, &inter)) {
-      if (!ret || dist2(inter.pos, ray->pos) < dist2(best.pos, ray->pos)) {
+      if (inter.t >= 0 && inter.t < best.t)
         best = inter;
-        ret = &best;
-      }
     }
   }
-  return ret;
+  return best;
 }
 
 static Color calc_diffuse_comp(Light *light, Intersection *in, Vec3 L) {
   Color result = {0};
-  result = vecadd(result, vecmul(in->mat->diffuse_color,
-                                 in->mat->kd * MAX(dot(L, in->norm), 0)));
+  result = clamp(vecadd(result, vecmul(in->mat->diffuse_color,
+                                 in->mat->kd * MAX(dot(L, in->norm), 0))));
   return result;
 }
 
@@ -177,8 +176,12 @@ static Color calc_specular_comp(Scene *scene, Light *light, Intersection *in,
   double factor = MAX(dot(in->norm, H), 0);
   for (int i = 0; i < in->mat->n; i++)
     factor *= factor;
-  result = vecadd(result, vecmul(in->mat->spec_color, in->mat->ks * factor));
+  result = clamp(vecadd(result, vecmul(in->mat->spec_color, in->mat->ks * factor)));
   return result;
+}
+
+static Color apply_atten(Light *l, Color c) {
+  
 }
 
 Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in) {
@@ -189,8 +192,13 @@ Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in) {
     Light *light = &scene->lights[i];
     Vec3 L = light->w ? norm(vecsub(light->pos, in->pos)) : vecinv(light->pos);
 
-    result = vecadd(result, calc_diffuse_comp(light, in, L));
-    result = vecadd(result, calc_specular_comp(scene, light, in, L));
+    Color non_amb_color = {0};
+    non_amb_color = vecadd(non_amb_color, calc_diffuse_comp(light, in, L));
+    non_amb_color = vecadd(non_amb_color, calc_specular_comp(scene, light, in, L));
+    non_amb_color = elemmul(non_amb_color, light->color);
+    if (light->is_attenuated)
+      non_amb_color = apply_atten(light, non_amb_color);
+
   }
   return result;
 }

@@ -61,8 +61,8 @@ static int read_mat(const char *body, Material *out) {
   int end;
   int rc = sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %d%n",
                   &c.diffuse_color.x, &c.diffuse_color.y, &c.diffuse_color.z,
-                  &c.spec_color.x, &c.spec_color.y, &c.spec_color.z, &c.ka,
-                  &c.kd, &c.ks, &c.n, &end);
+                  &c.spec_color.x, &c.spec_color.y, &c.spec_color.z,
+                  &c.ka, &c.kd, &c.ks, &c.n, &end);
   if (rc == 10 && isend(body[end])) {
     *out = c;
     return LINE_OK;
@@ -82,6 +82,25 @@ static int read_light(Scene *scene, const char *body) {
 
   Light *new_light = scene_add_light(scene);
   *new_light = light;
+  if (!new_light->w)
+    new_light->pos = norm(new_light->pos);
+  return LINE_OK;
+}
+
+static int read_att_light(Scene *scene, const char *body) {
+  Light light;
+  int end;
+  int rc = sscanf(body, "%lf %lf %lf %d %lf %lf %lf %lf %lf %lf%n\n",
+                  &light.pos.x, &light.pos.y, &light.pos.z, &light.w,
+                  &light.color.x, &light.color.y, &light.color.z,
+                  &light.att.x, &light.att.y, &light.att.z, &end);
+
+  if (rc != 10 || !isend(body[end]))
+    return INVALID_FORMAT;
+
+  Light *new_light = scene_add_light(scene);
+  *new_light = light;
+  new_light->is_attenuated = 1;
   if (!new_light->w)
     new_light->pos = norm(new_light->pos);
   return LINE_OK;
@@ -114,8 +133,8 @@ static int read_cylinder(Scene *scene, const char *body, Material *curr_color) {
 
   int end;
   int rc =
-      sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf%n", &center.x, &center.y,
-             &center.z, &dir.x, &dir.y, &dir.z, &radius, &length, &end);
+    sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf%n", &center.x, &center.y,
+           &center.z, &dir.x, &dir.y, &dir.z, &radius, &length, &end);
   if (rc != 8 || !isend(body[end]))
     return INVALID_FORMAT;
 
@@ -191,8 +210,8 @@ static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
   } else if (strcmp(tag, "imsize") == 0) {
     rc = sscanf(body, "%d %d%c", &scene->pixel_width, &scene->pixel_height,
                 &sent) == 2
-             ? LINE_OK
-             : INVALID_FORMAT;
+         ? LINE_OK
+         : INVALID_FORMAT;
     config->imsize = 1;
   } else if (strcmp(tag, "bkgcolor") == 0) {
     rc = read_color(body, &scene->bg_color);
@@ -208,6 +227,8 @@ static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
     config->object = 1;
   } else if (strcmp(tag, "light") == 0) {
     rc = read_light(scene, body);
+  } else if (strcmp(tag, "attlight") == 0) {
+    rc = read_att_light(scene, body);
   } else {
     rc = UNRECOGNIZED_TAG;
   }
@@ -247,21 +268,21 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
       const char *args = line + strlen(tag);
       rc = parse_desc_line(scene, &config, tag, args);
       switch (rc) {
-      case UNRECOGNIZED_TAG: {
-        fprintf(stderr,
-                "invalid scene description file (line %zu): unrecognized tag "
-                "'%s'\n",
-                line_no, tag);
-        goto cleanup;
-      }
-      case INVALID_FORMAT:
-        fprintf(stderr,
-                "invalid scene description file (line %zu): invalid format for "
-                "tag '%s'\n",
-                line_no, tag);
-        goto cleanup;
-      default:
-        break;
+        case UNRECOGNIZED_TAG: {
+          fprintf(stderr,
+                  "invalid scene description file (line %zu): unrecognized tag "
+                  "'%s'\n",
+                  line_no, tag);
+          goto cleanup;
+        }
+        case INVALID_FORMAT:
+          fprintf(stderr,
+                  "invalid scene description file (line %zu): invalid format for "
+                  "tag '%s'\n",
+                  line_no, tag);
+          goto cleanup;
+        default:
+          break;
       }
     }
     line_no++;
@@ -273,7 +294,7 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
   if (!scene_verify_valid(scene, &config))
     rc = INVALID_FORMAT;
 
-cleanup:
+  cleanup:
   if (rc != LINE_OK) {
     scene_destroy(scene);
     scene = NULL;
@@ -299,7 +320,7 @@ Object *scene_add_object(Scene *scene) {
   } else if (scene->objects_len == scene->objects_cap) {
     scene->objects_cap = scene->objects_cap * 2;
     scene->objects =
-        realloc(scene->objects, sizeof(Object) * scene->objects_cap);
+      realloc(scene->objects, sizeof(Object) * scene->objects_cap);
   }
   return &scene->objects[scene->objects_len++];
 }
@@ -313,7 +334,7 @@ Material *scene_add_material(Scene *scene) {
   } else if (scene->palette_len == scene->palette_cap) {
     scene->palette_cap = scene->palette_cap * 2;
     scene->palette =
-        realloc(scene->palette, sizeof(Object) * scene->palette_cap);
+      realloc(scene->palette, sizeof(Object) * scene->palette_cap);
   }
   return &scene->palette[scene->palette_len++];
 }

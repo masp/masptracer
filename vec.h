@@ -26,6 +26,8 @@ Vec3 vecmul(Vec3 v, double s);
 Vec3 vecdiv(Vec3 v, double s);
 Vec3 vecinv(Vec3 v);
 
+Vec3 elemmul(Vec3 l, Vec3 r);
+
 typedef struct Ray {
   Vec3 pos;
   Vec3 dir; // unit length

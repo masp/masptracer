@@ -85,3 +85,12 @@ Vec3 ray_pos(Ray *ray, double t) {
   result.z = ray->pos.z + ray->dir.z * t;
   return result;
 }
+
+
+Vec3 elemmul(Vec3 l, Vec3 r) {
+  Vec3 result;
+  result.x = l.x * r.x;
+  result.y = l.y * r.y;
+  result.z = l.z * r.z;
+  return result;
+}

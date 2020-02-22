@@ -16,8 +16,6 @@ PpmColor rgb_white() {
   return result;
 }
 
-#define CLAMP(x) ((x) < 0 ? 0 : ((x) > 1 ? 1 : (x)))
-
 PpmColor ppm_color_from_color(Color color) {
   PpmColor result;
   result.r = (uint8_t) (CLAMP(color.x) * 255);

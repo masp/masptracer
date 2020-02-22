@@ -5,7 +5,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define CLAMP(x) ((x) < 0 ? 0 : ((x) > 1 ? 1 : (x)))
+
 typedef Vec3 Color;
+inline Vec3 clamp(Vec3 v) {
+  Vec3 result;
+  result.x = CLAMP(v.x);
+  result.y = CLAMP(v.y);
+  result.z = CLAMP(v.z);
+  return result;
+}
 
 typedef struct Material {
   Color diffuse_color;
@@ -53,6 +62,8 @@ typedef struct Light {
   Vec3 pos;
   int w; // directional or point (w = 0/directional, w = 1/point)
   Color color;
+  int is_attenuated;
+  Vec3 att;
 } Light;
 
 int ray_intersects_object(Ray *ray, Object *obj, Intersection *out);
@@ -83,7 +94,7 @@ Material *scene_add_material(Scene *scene);
 Object *scene_add_object(Scene *scene);
 Light *scene_add_light(Scene *scene);
 
-Intersection *scene_find_best_inter(Scene *scene, Ray *ray);
+Intersection scene_find_best_inter(Scene *scene, Ray *ray);
 Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in);
 
 void scene_destroy(Scene *s);

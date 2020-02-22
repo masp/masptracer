@@ -1,10 +1,10 @@
-eye 0 25 25
+eye 0 15 110
 viewdir 0 -1 -1
 updir 0 1 0
 hfov 90
-imsize 800 600
+imsize 900 900
 bkgcolor 0 0 0
 
-light -1 -1 -1 0 1 0 0
-mltcolor 1 0 0 1 0 1 0.1 0.7 0 9
+light 0 25 25 1 1 0 0
+mltcolor 1 0 0 1 0 1 0.1 0.7 0.4 9
 cylinder 0 0 0  0 0 1  10  100
