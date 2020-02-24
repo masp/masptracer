@@ -8,7 +8,7 @@
 #define CLAMP(x) ((x) < 0 ? 0 : ((x) > 1 ? 1 : (x)))
 
 typedef Vec3 Color;
-inline Vec3 clamp(Vec3 v) {
+static inline Vec3 clamp(Vec3 v) {
   Vec3 result;
   result.x = CLAMP(v.x);
   result.y = CLAMP(v.y);
@@ -22,14 +22,6 @@ typedef struct Material {
   double ka, kd, ks;
   int n;
 } Material;
-
-typedef struct Intersection {
-  Vec3 pos;
-  Vec3 norm;
-  Material *mat;
-
-  double t; // parameter along ray where intersection occurred (used for distance calc)
-} Intersection;
 
 typedef struct Sphere {
   Vec3 center;
@@ -58,6 +50,15 @@ typedef struct Object {
   ObjectType type;
 } Object;
 
+typedef struct Intersection {
+  Vec3 pos;
+  Vec3 norm;
+  Material *mat;
+  Object *obj;
+
+  double t; // parameter along ray where intersection occurred (used for distance calc)
+} Intersection;
+
 typedef struct Light {
   Vec3 pos;
   int w; // directional or point (w = 0/directional, w = 1/point)
@@ -65,6 +66,12 @@ typedef struct Light {
   int is_attenuated;
   Vec3 att;
 } Light;
+
+typedef struct DepthCue {
+  Vec3 color;
+  double a_min, a_max;
+  double dist_min, dist_max;
+} DepthCue;
 
 int ray_intersects_object(Ray *ray, Object *obj, Intersection *out);
 
@@ -88,6 +95,9 @@ typedef struct Scene {
   Light *lights;
   size_t lights_cap;
   size_t lights_len;
+
+  int depth_cueing_enabled;
+  DepthCue depth_cueing;
 } Scene;
 
 Material *scene_add_material(Scene *scene);

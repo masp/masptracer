@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 project(raytracerproj C)
 
 set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 add_library(tracer ppm_file.c scene.c camera.c vec.c scene_config.c)
 

@@ -7,42 +7,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char *read_file_contents(FILE *f) {
-  char *file;
-  fseek(f, 0, SEEK_END);
-  long len = ftell(f);
-  fseek(f, 0, SEEK_SET);
-
-  file = calloc(sizeof(char), len + 1);
-  if (fread(file, 1, len, f) < 0)
-    return NULL;
-
-  file[len] = '\0';
-  return file;
-}
-
-// Takes in a continuous new line separated string as input, outputs
-// a null-terminated string containing the line starting at "start"
-//
-// Returns length of line, or -1 if eof.
-static void read_desc_line(char *start, char *out, size_t out_sz) {
-  char *c;
-  int line_len = 0;
-  for (c = start; *c != '\0' && *c != '\n' && line_len < out_sz;
-       ++c, line_len++)
-    out[line_len] = *c;
-
-  assert(c - start == line_len);
-  out[line_len] = '\0';
-}
-
 typedef enum ParseLineResult {
   LINE_OK,
   UNRECOGNIZED_TAG,
   INVALID_FORMAT
 } ParseLineResult;
 
-static int isend(char c) { return (c == '\0' || c == '\n'); }
+static int isend(char c) { return (c == '\0' || c == '\n' || c == '\r'); }
 
 static ParseLineResult read_vec3(const char *body, Vec3 *out) {
   int end;
@@ -61,8 +32,8 @@ static int read_mat(const char *body, Material *out) {
   int end;
   int rc = sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %d%n",
                   &c.diffuse_color.x, &c.diffuse_color.y, &c.diffuse_color.z,
-                  &c.spec_color.x, &c.spec_color.y, &c.spec_color.z,
-                  &c.ka, &c.kd, &c.ks, &c.n, &end);
+                  &c.spec_color.x, &c.spec_color.y, &c.spec_color.z, &c.ka,
+                  &c.kd, &c.ks, &c.n, &end);
   if (rc == 10 && isend(body[end])) {
     *out = c;
     return LINE_OK;
@@ -71,11 +42,11 @@ static int read_mat(const char *body, Material *out) {
 }
 
 static int read_light(Scene *scene, const char *body) {
-  Light light;
+  Light light = {0};
   int end;
-  int rc = sscanf(body, "%lf %lf %lf %d %lf %lf %lf%n\n",
-                  &light.pos.x, &light.pos.y, &light.pos.z, &light.w,
-                  &light.color.x, &light.color.y, &light.color.z, &end);
+  int rc = sscanf(body, "%lf %lf %lf %d %lf %lf %lf%n\n", &light.pos.x,
+                  &light.pos.y, &light.pos.z, &light.w, &light.color.x,
+                  &light.color.y, &light.color.z, &end);
 
   if (rc != 7 || !isend(body[end]))
     return INVALID_FORMAT;
@@ -88,12 +59,12 @@ static int read_light(Scene *scene, const char *body) {
 }
 
 static int read_att_light(Scene *scene, const char *body) {
-  Light light;
+  Light light = {0};
   int end;
   int rc = sscanf(body, "%lf %lf %lf %d %lf %lf %lf %lf %lf %lf%n\n",
                   &light.pos.x, &light.pos.y, &light.pos.z, &light.w,
-                  &light.color.x, &light.color.y, &light.color.z,
-                  &light.att.x, &light.att.y, &light.att.z, &end);
+                  &light.color.x, &light.color.y, &light.color.z, &light.att.x,
+                  &light.att.y, &light.att.z, &end);
 
   if (rc != 10 || !isend(body[end]))
     return INVALID_FORMAT;
@@ -133,8 +104,8 @@ static int read_cylinder(Scene *scene, const char *body, Material *curr_color) {
 
   int end;
   int rc =
-    sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf%n", &center.x, &center.y,
-           &center.z, &dir.x, &dir.y, &dir.z, &radius, &length, &end);
+      sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf%n", &center.x, &center.y,
+             &center.z, &dir.x, &dir.y, &dir.z, &radius, &length, &end);
   if (rc != 8 || !isend(body[end]))
     return INVALID_FORMAT;
 
@@ -146,6 +117,20 @@ static int read_cylinder(Scene *scene, const char *body, Material *curr_color) {
   new_cyl->radius = radius;
   new_cyl->height = length;
   new_cyl->color = curr_color;
+  return LINE_OK;
+}
+
+static int read_depth_cue(const char *body, DepthCue *out) {
+  DepthCue cue;
+  int end;
+  int rc = sscanf(body, "%lf %lf %lf %lf %lf %lf %lf%n", &cue.color.x,
+                  &cue.color.y, &cue.color.z, &cue.a_max, &cue.a_min,
+                  &cue.dist_max, &cue.dist_min, &end);
+  if (rc != 7 || !isend(body[end]))
+    return INVALID_FORMAT;
+
+  if (out)
+    *out = cue;
   return LINE_OK;
 }
 
@@ -190,8 +175,8 @@ static int scene_verify_valid(Scene *scene, SceneConfig *config) {
 
 static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
                            const char *body) {
-  static Material *curr_mlt_color = NULL;
-  char sent;
+  static Material *curr_mtl_color = NULL;
+  int end;
 
   int rc;
   if (strcmp(tag, "eye") == 0) {
@@ -204,31 +189,34 @@ static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
     rc = read_vec3(body, &scene->updir);
     config->updir = 1;
   } else if (strcmp(tag, "hfov") == 0) {
-    rc = sscanf(body, "%lf%c", &scene->fov_h, &sent) == 1 ? LINE_OK
-                                                          : INVALID_FORMAT;
+    rc = sscanf(body, "%lf%n", &scene->fov_h, &end) == 1 && isend(body[end])
+             ? LINE_OK
+             : INVALID_FORMAT;
     config->hfov = 1;
   } else if (strcmp(tag, "imsize") == 0) {
-    rc = sscanf(body, "%d %d%c", &scene->pixel_width, &scene->pixel_height,
-                &sent) == 2
-         ? LINE_OK
-         : INVALID_FORMAT;
+    rc = sscanf(body, "%d %d%n", &scene->pixel_width, &scene->pixel_height,
+                &end);
+    rc = rc == 2 && isend(body[end]) ? LINE_OK : INVALID_FORMAT;
     config->imsize = 1;
   } else if (strcmp(tag, "bkgcolor") == 0) {
     rc = read_color(body, &scene->bg_color);
     config->bkgcolor = 1;
-  } else if (strcmp(tag, "mltcolor") == 0) {
-    curr_mlt_color = scene_add_material(scene);
-    rc = read_mat(body, curr_mlt_color);
+  } else if (strcmp(tag, "mtlcolor") == 0) {
+    curr_mtl_color = scene_add_material(scene);
+    rc = read_mat(body, curr_mtl_color);
   } else if (strcmp(tag, "sphere") == 0) {
-    rc = read_sphere(scene, body, curr_mlt_color);
+    rc = read_sphere(scene, body, curr_mtl_color);
     config->object = 1;
   } else if (strcmp(tag, "cylinder") == 0) {
-    rc = read_cylinder(scene, body, curr_mlt_color);
+    rc = read_cylinder(scene, body, curr_mtl_color);
     config->object = 1;
   } else if (strcmp(tag, "light") == 0) {
     rc = read_light(scene, body);
   } else if (strcmp(tag, "attlight") == 0) {
     rc = read_att_light(scene, body);
+  } else if (strcmp(tag, "depthcueing") == 0) {
+    rc = read_depth_cue(body, &scene->depth_cueing);
+    scene->depth_cueing_enabled = 1;
   } else {
     rc = UNRECOGNIZED_TAG;
   }
@@ -246,17 +234,16 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
   ParseLineResult rc = LINE_OK;
   Scene *scene = calloc(1, sizeof(Scene));
   size_t line_no = 1;
-  char *file_contents = read_file_contents(fdesc_file);
 
   SceneConfig config = {0};
-  char *file_pos = file_contents;
   char line[256];
-  while (1) {
-    read_desc_line(file_pos, line, sizeof(line));
+  while (fgets(line, sizeof(line), fdesc_file)) {
+    if (line[0] == '#' || line[0] == '\n' || line[0] == '\r')
+      continue; // line is a comment, ignore
     size_t line_len = strlen(line);
     if (line_len > 0) {
       char tag[32];
-      rc = sscanf(file_pos, "%31s", tag);
+      rc = sscanf(line, "%31s", tag);
       if (rc <= 0) {
         fprintf(stderr,
                 "invalid scene description file (line %zu): expected line tag "
@@ -268,39 +255,35 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
       const char *args = line + strlen(tag);
       rc = parse_desc_line(scene, &config, tag, args);
       switch (rc) {
-        case UNRECOGNIZED_TAG: {
-          fprintf(stderr,
-                  "invalid scene description file (line %zu): unrecognized tag "
-                  "'%s'\n",
-                  line_no, tag);
-          goto cleanup;
-        }
-        case INVALID_FORMAT:
-          fprintf(stderr,
-                  "invalid scene description file (line %zu): invalid format for "
-                  "tag '%s'\n",
-                  line_no, tag);
-          goto cleanup;
-        default:
-          break;
+      case UNRECOGNIZED_TAG: {
+        fprintf(stderr,
+                "invalid scene description file (line %zu): unrecognized tag "
+                "'%s'\n",
+                line_no, tag);
+        goto cleanup;
+      }
+      case INVALID_FORMAT:
+        fprintf(stderr,
+                "invalid scene description file (line %zu): invalid format for "
+                "tag '%s'\n",
+                line_no, tag);
+        goto cleanup;
+      default:
+        break;
       }
     }
     line_no++;
-    if (file_pos[line_len] == '\0')
-      break;
-    file_pos += strlen(line) + 1;
   }
 
   if (!scene_verify_valid(scene, &config))
     rc = INVALID_FORMAT;
 
-  cleanup:
+cleanup:
   if (rc != LINE_OK) {
     scene_destroy(scene);
     scene = NULL;
   }
-  if (file_contents)
-    free(file_contents);
+
   fclose(fdesc_file);
   return scene;
 }
@@ -314,13 +297,9 @@ void scene_destroy(Scene *s) {
 Object *scene_add_object(Scene *scene) {
   assert(scene->objects_len <= scene->objects_cap);
   if (!scene->objects) {
-    scene->objects_cap = 8;
+    scene->objects_cap = 1024;
     scene->objects_len = 0;
     scene->objects = malloc(sizeof(Object) * scene->objects_cap);
-  } else if (scene->objects_len == scene->objects_cap) {
-    scene->objects_cap = scene->objects_cap * 2;
-    scene->objects =
-      realloc(scene->objects, sizeof(Object) * scene->objects_cap);
   }
   return &scene->objects[scene->objects_len++];
 }
@@ -328,13 +307,9 @@ Object *scene_add_object(Scene *scene) {
 Material *scene_add_material(Scene *scene) {
   assert(scene->palette_len <= scene->palette_cap);
   if (!scene->palette) {
-    scene->palette_cap = 8;
+    scene->palette_cap = 1024;
     scene->palette_len = 0;
     scene->palette = malloc(sizeof(Object) * scene->palette_cap);
-  } else if (scene->palette_len == scene->palette_cap) {
-    scene->palette_cap = scene->palette_cap * 2;
-    scene->palette =
-      realloc(scene->palette, sizeof(Object) * scene->palette_cap);
   }
   return &scene->palette[scene->palette_len++];
 }
@@ -342,12 +317,9 @@ Material *scene_add_material(Scene *scene) {
 Light *scene_add_light(Scene *scene) {
   assert(scene->lights_len <= scene->lights_cap);
   if (!scene->lights) {
-    scene->lights_cap = 8;
+    scene->lights_cap = 1024;
     scene->lights_len = 0;
     scene->lights = malloc(sizeof(Object) * scene->lights_cap);
-  } else if (scene->lights_len == scene->lights_cap) {
-    scene->lights_cap = scene->lights_cap * 2;
-    scene->lights = realloc(scene->lights, sizeof(Object) * scene->lights_cap);
   }
   return &scene->lights[scene->lights_len++];
 }

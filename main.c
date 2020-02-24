@@ -1,12 +1,13 @@
 
-#include "ppm_file.h"
 #include "camera.h"
+#include "ppm_file.h"
 #include "scene_config.h"
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static const char *input_file_name;
 static const char *gen_type;
@@ -78,6 +79,8 @@ static void parse_args(int argc, char **argv) {
 int main(int argc, char **argv) {
   parse_args(argc, argv);
 
+  clock_t begin = clock();
+
   Camera camera;
   Scene *scene = scene_create_from_file(input_file_name);
   if (!scene)
@@ -109,6 +112,10 @@ int main(int argc, char **argv) {
             output_file_name, strerror(rc));
     return EXIT_FAILURE;
   }
+
+  clock_t end = clock();
+  double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+  printf("Rendering finished in %lf seconds\n", time_spent);
 
   pixel_map_destroy(ppm);
   scene_destroy(scene);
