@@ -3,7 +3,7 @@ viewdir 0 0 1
 updir 0 1 0
 hfov 90
 imsize 900 900
-bkgcolor 0.8 0.8 0.8
+bkgcolor 0 0 0
 
 light -13.3 22 5 1 1 1 1
 light 13.3 22 -5 1 1 1 1

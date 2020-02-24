@@ -1,0 +1,28 @@
+eye 0 15 25
+viewdir 0 -0.5 -4
+updir 0.0 1.0 0.0
+hfov 60
+imsize 800 300
+
+bkgcolor 0 0 0
+
+light 0 20.0 20.0 1 1.0 1.0 1.0
+light 0 20.0 -20.0 1 1.0 1.0 1.0
+
+mtlcolor 0.5 0.5 0.5 1 1 1 0.2 0.6 0 40
+cylinder 0 0 0  0 -1 0  10000 5
+
+mtlcolor 1 0 0 1 1 1 0.2 0.4 0 40
+sphere -20.0 10.0 -30 4.0
+
+mtlcolor 1 0 0 1 1 1 0.2 0.4 0 40
+sphere -10.0 10.0 -30 4.0
+
+mtlcolor 1 0 0 1 1 1 0.2 0.4 0 40
+sphere 0.0 10.0 -30 4.0
+
+mtlcolor 1 0 0 1 1 1 0.2 0.4 0 40
+sphere 10.0 10.0 -30 4.0
+
+mtlcolor 1 0 0 1 1 1 0.2 0.4 0 40
+sphere 20.0 10.0 -30 4.0
