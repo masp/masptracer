@@ -134,6 +134,101 @@ static int read_depth_cue(const char *body, DepthCue *out) {
   return LINE_OK;
 }
 
+static int read_vertex(Scene *scene, const char *body) {
+  Vec3 v;
+  int end;
+  int rc = sscanf(body, "%lf %lf %lf%n", &v.x, &v.y, &v.z, &end);
+  if (rc != 3 || !isend(body[end]))
+    return INVALID_FORMAT;
+
+  *scene_add_vertex(scene) = v;
+  return LINE_OK;
+}
+
+static int read_vertex_normal(Scene *scene, const char *body) {
+  Vec3 v;
+  int end;
+  int rc = sscanf(body, "%lf %lf %lf%n", &v.x, &v.y, &v.z, &end);
+  if (rc != 3 || !isend(body[end]))
+    return INVALID_FORMAT;
+
+  *scene_add_norm(scene) = v;
+  return LINE_OK;
+}
+
+static int read_vertex_texture(Scene *scene, const char *body) {
+  Vec2 v;
+  int end;
+  int rc = sscanf(body, "%lf %lf%n", &v.x, &v.y, &end);
+  if (rc != 2 || !isend(body[end]))
+    return INVALID_FORMAT;
+
+  *scene_add_tex(scene) = v;
+  return LINE_OK;
+}
+
+static int read_triangle_simple(const char *body, Triangle *tri)
+{
+  int end;
+  int rc = sscanf(body, "%d %d %d%n", &tri->p[0], &tri->p[1], &tri->p[2], &end);
+  if (rc != 3 || !isend(body[end]))
+    return INVALID_FORMAT;
+  return LINE_OK;
+}
+
+static int read_triangle_normal(const char *body, Triangle *tri)
+{
+  int end;
+  int rc = sscanf(body, "%d//%d %d//%d %d//%d%n", &tri->p[0], &tri->n[0], &tri->p[1], &tri->n[1], &tri->p[2], &tri->n[2], &end);
+  if (rc != 6 || !isend(body[end]))
+    return INVALID_FORMAT;
+  return LINE_OK;
+}
+
+static int read_triangle_texture(const char *body, Triangle *tri)
+{
+  int end;
+  int rc = sscanf(body, "%d/%d %d/%d %d/%d%n", &tri->p[0], &tri->t[0], &tri->p[1], &tri->t[1], &tri->p[2], &tri->t[2], &end);
+  if (rc != 6 || !isend(body[end]))
+    return INVALID_FORMAT;
+  return LINE_OK;
+}
+
+
+static int read_triangle(Scene *scene, const char *body, Material *mat) {
+  Triangle tri;
+  int rc = read_triangle_simple(body, &tri);
+  if (rc != LINE_OK)
+    rc = read_triangle_normal(body, &tri);
+  if (rc != LINE_OK)
+    rc = read_triangle_texture(body, &tri);
+  if (rc != LINE_OK)
+    rc = read_triangle_normal_texture(body, &tri);
+  if (rc != LINE_OK)
+    return rc;
+
+  for (int i = 0; i < 3; i++)
+  {
+    tri.p[i]--;
+    if (tri.p[i] >= scene->vert_len)
+    {
+      fprintf(stderr, "invalid vertex index %d, must be less than number of vertices %zu\n", tri.p[i] + 1, scene->vert_len);
+      return INVALID_FORMAT;
+    }
+    tri.n[i]--;
+    if (tri.n[i] >= scene->norm_len)
+    {
+      fprintf(stderr, "invalid normal vertex index %d, must be less than number of vertices %zu\n", tri.n[i] + 1, scene->norm_len);
+      return INVALID_FORMAT;
+    }
+  }
+  Object *obj = scene_add_object(scene);
+  obj->tri = tri;
+  obj->type = OBJECT_TRIANGLE;
+  obj->tri.mat = mat;
+  return LINE_OK;
+}
+
 // Bool variables to check if parameters were passed
 typedef struct SceneConfig {
   char eye;
@@ -160,7 +255,6 @@ static int scene_verify_valid(Scene *scene, SceneConfig *config) {
   VERIFY_CONFIG(config, hfov);
   VERIFY_CONFIG(config, imsize);
   VERIFY_CONFIG(config, bkgcolor);
-  VERIFY_CONFIG(config, object);
 
   if (scene->pixel_width <= 0 || scene->pixel_height <= 0) {
     fprintf(stderr,
@@ -217,6 +311,14 @@ static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
   } else if (strcmp(tag, "depthcueing") == 0) {
     rc = read_depth_cue(body, &scene->depth_cueing);
     scene->depth_cueing_enabled = 1;
+  } else if (strcmp(tag, "v") == 0) {
+    rc = read_vertex(scene, body);
+  } else if (strcmp(tag, "vn") == 0) {
+    rc = read_vertex_normal(scene, body);
+  } else if (strcmp(tag, "vt") == 0) {
+    rc = read_vertex_texture(scene, body);
+  } else if (strcmp(tag, "f") == 0) {
+    rc = read_triangle(scene, body, curr_mtl_color);
   } else {
     rc = UNRECOGNIZED_TAG;
   }
@@ -239,7 +341,10 @@ Scene *scene_create_from_file(const char *scene_desc_file_path) {
   char line[256];
   while (fgets(line, sizeof(line), fdesc_file)) {
     if (line[0] == '#' || line[0] == '\n' || line[0] == '\r')
+    {
+      line_no++;
       continue; // line is a comment, ignore
+    }
     size_t line_len = strlen(line);
     if (line_len > 0) {
       char tag[32];
@@ -309,7 +414,7 @@ Material *scene_add_material(Scene *scene) {
   if (!scene->palette) {
     scene->palette_cap = 1024;
     scene->palette_len = 0;
-    scene->palette = malloc(sizeof(Object) * scene->palette_cap);
+    scene->palette = malloc(sizeof(Material) * scene->palette_cap);
   }
   return &scene->palette[scene->palette_len++];
 }
@@ -319,7 +424,37 @@ Light *scene_add_light(Scene *scene) {
   if (!scene->lights) {
     scene->lights_cap = 1024;
     scene->lights_len = 0;
-    scene->lights = malloc(sizeof(Object) * scene->lights_cap);
+    scene->lights = malloc(sizeof(Light) * scene->lights_cap);
   }
   return &scene->lights[scene->lights_len++];
+}
+
+Vec3 *scene_add_vertex(Scene *scene) {
+  assert(scene->vert_len <= scene->vert_cap);
+  if (!scene->vertices) {
+    scene->vert_cap = 4096;
+    scene->vert_len = 0;
+    scene->vertices = malloc(sizeof(Vec3) * scene->vert_cap);
+  }
+  return &scene->vertices[scene->vert_len++];
+}
+
+Vec3 *scene_add_norm(Scene *scene) {
+  assert(scene->norm_len <= scene->norm_cap);
+  if (!scene->normals) {
+    scene->norm_cap = 4096;
+    scene->norm_len = 0;
+    scene->normals = malloc(sizeof(Vec3) * scene->norm_cap);
+  }
+  return &scene->normals[scene->norm_len++];
+}
+
+Vec2 *scene_add_tex(Scene *scene) {
+  assert(scene->texs_len <= scene->texs_cap);
+  if (!scene->texs) {
+    scene->texs_cap = 4096;
+    scene->texs_len = 0;
+    scene->texs = malloc(sizeof(Vec2) * scene->texs_cap);
+  }
+  return &scene->texs[scene->vert_len++];
 }

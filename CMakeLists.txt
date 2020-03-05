@@ -4,10 +4,12 @@ project(raytracerproj C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_library(tracer ppm_file.c scene.c camera.c vec.c scene_config.c)
+add_library(tracer ppm_file.c scene.c camera.c vec.c scene_config.c sphere.c cylinder.c triangle.c)
 
 add_executable(masptracer main.c)
 target_link_libraries(masptracer tracer m)
+
+add_executable(ppmconv ppmconv.c)
 
 option(BUILD_TESTING "" OFF)
 include(CTest)

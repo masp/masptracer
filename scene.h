@@ -6,6 +6,8 @@
 #include <stddef.h>
 
 #define CLAMP(x) ((x) < 0 ? 0 : ((x) > 1 ? 1 : (x)))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 typedef Vec3 Color;
 static inline Vec3 clamp(Vec3 v) {
@@ -37,15 +39,24 @@ typedef struct Cylinder {
   Material *color;
 } Cylinder;
 
+typedef struct Triangle {
+  int p[3];
+  int n[3];
+  int t[3];
+  Material *mat;
+} Triangle;
+
 typedef enum {
   OBJECT_SPHERE,
   OBJECT_CYLINDER,
+  OBJECT_TRIANGLE
 } ObjectType;
 
 typedef struct Object {
   union {
     Sphere sphere;
     Cylinder cyl;
+    Triangle tri;
   };
   ObjectType type;
 } Object;
@@ -73,8 +84,6 @@ typedef struct DepthCue {
   double dist_min, dist_max;
 } DepthCue;
 
-int ray_intersects_object(Ray *ray, Object *obj, Intersection *out);
-
 typedef struct Scene {
   Vec3 eye;
   Vec3 viewdir;
@@ -96,6 +105,18 @@ typedef struct Scene {
   size_t lights_cap;
   size_t lights_len;
 
+  Vec3 *vertices;
+  size_t vert_cap;
+  size_t vert_len;
+
+  Vec3 *normals;
+  size_t norm_cap;
+  size_t norm_len;
+
+  Vec2 *texs;
+  size_t texs_cap;
+  size_t texs_len;
+
   int depth_cueing_enabled;
   DepthCue depth_cueing;
 } Scene;
@@ -103,6 +124,14 @@ typedef struct Scene {
 Material *scene_add_material(Scene *scene);
 Object *scene_add_object(Scene *scene);
 Light *scene_add_light(Scene *scene);
+Vec3 *scene_add_vertex(Scene *scene);
+Vec3 *scene_add_norm(Scene *scene);
+Vec2 *scene_add_tex(Scene *scene);
+
+int ray_intersects_object(Scene *scene, Ray *ray, Object *obj, Intersection *out);
+int ray_intersects_sphere(Scene *scene, Ray *ray, Sphere *sphere, Intersection *out);
+int ray_intersects_cylinder(Scene *scene, Ray *ray, Cylinder *sphere, Intersection *out);
+int ray_intersects_triangle(Scene  *scene, Ray *ray, Triangle *tri, Intersection *out);
 
 Intersection scene_find_best_inter(Scene *scene, Ray *ray);
 Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in);
