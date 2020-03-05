@@ -1,4 +1,5 @@
 #include "scene_config.h"
+#include "ppm_file.h"
 #include "scene.h"
 
 #include <assert.h>
@@ -194,38 +195,102 @@ static int read_triangle_texture(const char *body, Triangle *tri)
   return LINE_OK;
 }
 
+static int read_triangle_texture_normal(const char *body, Triangle *tri)
+{
+  int end;
+  int rc = sscanf(body, "%d/%d/%d %d/%d/%d %d/%d/%d%n",
+                  &tri->p[0], &tri->t[0], &tri->n[0],
+                  &tri->p[1], &tri->t[1], &tri->n[1],
+                  &tri->p[2], &tri->t[2], &tri->n[2], &end);
+  if (rc != 9 || !isend(body[end]))
+    return INVALID_FORMAT;
+  return LINE_OK;
+}
 
 static int read_triangle(Scene *scene, const char *body, Material *mat) {
-  Triangle tri;
+  Triangle tri = {0};
   int rc = read_triangle_simple(body, &tri);
   if (rc != LINE_OK)
     rc = read_triangle_normal(body, &tri);
   if (rc != LINE_OK)
     rc = read_triangle_texture(body, &tri);
   if (rc != LINE_OK)
-    rc = read_triangle_normal_texture(body, &tri);
+    rc = read_triangle_texture_normal(body, &tri);
   if (rc != LINE_OK)
     return rc;
+
+  if (!mat)
+  {
+    fprintf(stderr, "must specify material before triangle\n");
+    return INVALID_FORMAT;
+  }
 
   for (int i = 0; i < 3; i++)
   {
     tri.p[i]--;
-    if (tri.p[i] >= scene->vert_len)
+    if (tri.p[i] > scene->vert_len)
     {
       fprintf(stderr, "invalid vertex index %d, must be less than number of vertices %zu\n", tri.p[i] + 1, scene->vert_len);
       return INVALID_FORMAT;
     }
+
     tri.n[i]--;
-    if (tri.n[i] >= scene->norm_len)
+    if (tri.n[i] >= 0)
     {
-      fprintf(stderr, "invalid normal vertex index %d, must be less than number of vertices %zu\n", tri.n[i] + 1, scene->norm_len);
-      return INVALID_FORMAT;
+      if (tri.n[i] > scene->norm_len)
+      {
+        fprintf(stderr, "invalid normal vertex index %d, must be less than number of vertices %zu\n", tri.n[i] + 1, scene->norm_len);
+        return INVALID_FORMAT;
+      }
+    }
+
+    tri.t[i]--;
+    if (tri.t[i] >= 0)
+    {
+      if (!mat->texture)
+      {
+        fprintf(stderr, "must specify texture if using texture coordinates\n");
+        return INVALID_FORMAT;
+      }
+
+      if (tri.t[i] > scene->texs_len)
+      {
+        fprintf(stderr, "invalid normal vertex index %d, must be less than number of vertices %zu\n", tri.t[i] + 1, scene->texs_len);
+        return INVALID_FORMAT;
+      }
     }
   }
   Object *obj = scene_add_object(scene);
   obj->tri = tri;
   obj->type = OBJECT_TRIANGLE;
   obj->tri.mat = mat;
+  return LINE_OK;
+}
+
+static int read_texture(Scene *scene, const char *body, Material *curr_mat)
+{
+  int end;
+  char file_path[256];
+  int rc = sscanf(body, "%s%n",
+                  file_path, &end);
+  if (rc != 1 || !isend(body[end]))
+    return INVALID_FORMAT;
+
+  PixelMap *texture;
+  rc = pixel_map_read_from_file(file_path, &texture);
+  if (rc != 0)
+  {
+    fprintf(stderr, "failed to load texture '%s' with error %s\n", file_path, strerror(rc));
+    return INVALID_FORMAT;
+  }
+
+  scene_add_texture_map(scene, texture);
+  if (!curr_mat)
+  {
+    fprintf(stderr, "must specify a mtlcolor before for the texture to use\n");
+    return INVALID_FORMAT;
+  }
+  curr_mat->texture = texture;
   return LINE_OK;
 }
 
@@ -319,6 +384,8 @@ static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
     rc = read_vertex_texture(scene, body);
   } else if (strcmp(tag, "f") == 0) {
     rc = read_triangle(scene, body, curr_mtl_color);
+  } else if (strcmp(tag, "texture") == 0) {
+    rc = read_texture(scene, body, curr_mtl_color);
   } else {
     rc = UNRECOGNIZED_TAG;
   }
@@ -396,6 +463,13 @@ cleanup:
 void scene_destroy(Scene *s) {
   free(s->objects);
   free(s->palette);
+  free(s->lights);
+  free(s->vertices);
+  free(s->normals);
+  free(s->texs);
+  for (int i = 0; i < s->texture_maps_len; i++)
+    pixel_map_destroy(s->texture_maps[i]);
+  free(s->texture_maps);
   free(s);
 }
 
@@ -456,5 +530,15 @@ Vec2 *scene_add_tex(Scene *scene) {
     scene->texs_len = 0;
     scene->texs = malloc(sizeof(Vec2) * scene->texs_cap);
   }
-  return &scene->texs[scene->vert_len++];
+  return &scene->texs[scene->texs_len++];
+}
+
+void scene_add_texture_map(Scene *scene, struct PixelMap *map) {
+  assert(scene->texture_maps_len <= scene->texture_maps_cap);
+  if (!scene->texture_maps) {
+    scene->texture_maps_cap = 128;
+    scene->texture_maps_len = 0;
+    scene->texture_maps = malloc(sizeof(struct PixelMap *) * scene->texture_maps_cap);
+  }
+  scene->texture_maps[scene->texture_maps_len++] = map;
 }

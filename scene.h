@@ -9,6 +9,8 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+struct PixelMap;
+
 typedef Vec3 Color;
 static inline Vec3 clamp(Vec3 v) {
   Vec3 result;
@@ -23,6 +25,7 @@ typedef struct Material {
   Color spec_color;
   double ka, kd, ks;
   int n;
+  struct PixelMap *texture;
 } Material;
 
 typedef struct Sphere {
@@ -68,6 +71,8 @@ typedef struct Intersection {
   Object *obj;
 
   double t; // parameter along ray where intersection occurred (used for distance calc)
+  int has_tex_coords;
+  Vec2 tex_coords;
 } Intersection;
 
 typedef struct Light {
@@ -117,6 +122,10 @@ typedef struct Scene {
   size_t texs_cap;
   size_t texs_len;
 
+  struct PixelMap **texture_maps;
+  size_t texture_maps_cap;
+  size_t texture_maps_len;
+
   int depth_cueing_enabled;
   DepthCue depth_cueing;
 } Scene;
@@ -127,6 +136,7 @@ Light *scene_add_light(Scene *scene);
 Vec3 *scene_add_vertex(Scene *scene);
 Vec3 *scene_add_norm(Scene *scene);
 Vec2 *scene_add_tex(Scene *scene);
+void scene_add_texture_map(Scene *scene, struct PixelMap *map);
 
 int ray_intersects_object(Scene *scene, Ray *ray, Object *obj, Intersection *out);
 int ray_intersects_sphere(Scene *scene, Ray *ray, Sphere *sphere, Intersection *out);

@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "camera.h"
+#include "ppm_file.h"
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
@@ -43,10 +44,10 @@ Intersection scene_find_best_inter(Scene *scene, Ray *ray) {
   return scene_find_best_inter_ignore(scene, ray, NULL);
 }
 
-static Color calc_diffuse_comp(Intersection *in, Vec3 L) {
+static Color calc_diffuse_comp(Color diff_color, Intersection *in, Vec3 L) {
   Color result = {0};
   double factor = MAX(dot(L, in->norm), 0);
-  result = vecadd(result, vecmul(in->mat->diffuse_color, in->mat->kd * factor));
+  result = vecadd(result, vecmul(diff_color, in->mat->kd * factor));
   return result;
 }
 
@@ -143,14 +144,17 @@ static double calc_shadow_factor_smooth(Scene *scene, Light *light,
 
 Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in) {
   Color result;
-  result = vecmul(in->mat->diffuse_color, in->mat->ka);
+  Color diff_color = in->mat->diffuse_color;
+  if (in->has_tex_coords)
+    diff_color = pixel_map_nearest_lookup(in->mat->texture, in->tex_coords);
 
+  result = vecmul(diff_color, in->mat->ka);
   for (int i = 0; i < scene->lights_len; i++) {
     Light *light = &scene->lights[i];
     Vec3 L = light->w ? norm(vecsub(light->pos, in->pos)) : vecinv(light->pos);
 
     Color non_amb_color = {0};
-    non_amb_color = clamp(vecadd(non_amb_color, calc_diffuse_comp(in, L)));
+    non_amb_color = clamp(vecadd(non_amb_color, calc_diffuse_comp(diff_color, in, L)));
     non_amb_color =
       clamp(vecadd(non_amb_color, calc_specular_comp(scene, in, L)));
     non_amb_color = elemmul(non_amb_color, light->color);

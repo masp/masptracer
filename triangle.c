@@ -58,7 +58,16 @@ int ray_intersects_triangle(Scene *scene, Ray *ray, Triangle *tri_def,
       out->norm = norm(out->norm);
     }
     else {
-      out->norm = n;
+      out->norm = norm(n);
+    }
+    if (tri_def->t[0] >= 0)
+    {
+      Vec2 t0 = scene->texs[tri_def->t[0]];
+      Vec2 t1 = scene->texs[tri_def->t[1]];
+      Vec2 t2 = scene->texs[tri_def->t[2]];
+      out->tex_coords.x += tri.alph * t0.x + tri.beta * t1.x + tri.gamm * t2.x;
+      out->tex_coords.y += tri.alph * t0.y + tri.beta * t1.y + tri.gamm * t2.y;
+      out->has_tex_coords = 1;
     }
     out->pos = ray_pos(ray, t);
     out->t = t;
