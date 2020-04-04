@@ -27,9 +27,9 @@ PpmColor ppm_color_from_color(Color color) {
 
 static Color ppm2color(PpmColor c) {
   Color result;
-  result.x = (double)c.r / 255.0;
-  result.y = (double)c.g / 255.0;
-  result.z = (double)c.b / 255.0;
+  result.x = (float)c.r / 255.0;
+  result.y = (float)c.g / 255.0;
+  result.z = (float)c.b / 255.0;
   return result;
 }
 

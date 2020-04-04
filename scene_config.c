@@ -18,24 +18,24 @@ static int isend(char c) { return (c == '\0' || c == '\n' || c == '\r'); }
 
 static ParseLineResult read_vec3(const char *body, Vec3 *out) {
   int end;
-  int rc = sscanf(body, "%lf %lf %lf%n", &out->x, &out->y, &out->z, &end);
+  int rc = sscanf(body, "%f %f %f%n", &out->x, &out->y, &out->z, &end);
   return rc == 3 && isend(body[end]) ? LINE_OK : INVALID_FORMAT;
 }
 
 static ParseLineResult read_color(const char *body, Color *out) {
   int end;
-  int rc = sscanf(body, "%lf %lf %lf%n", &out->x, &out->y, &out->z, &end);
+  int rc = sscanf(body, "%f %f %f%n", &out->x, &out->y, &out->z, &end);
   return rc == 3 && isend(body[end]) ? LINE_OK : INVALID_FORMAT;
 }
 
 static int read_mat(const char *body, Material *out) {
   Material c = {0};
   int end;
-  int rc = sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %d%n",
+  int rc = sscanf(body, "%f %f %f %f %lf %f %f %f %f %d %f %f%n",
                   &c.diffuse_color.x, &c.diffuse_color.y, &c.diffuse_color.z,
                   &c.spec_color.x, &c.spec_color.y, &c.spec_color.z, &c.ka,
-                  &c.kd, &c.ks, &c.n, &end);
-  if (rc == 10 && isend(body[end])) {
+                  &c.kd, &c.ks, &c.n, &c.opacity, &c.idx_of_refraction, &end);
+  if (rc == 12 && isend(body[end])) {
     *out = c;
     return LINE_OK;
   }
@@ -45,7 +45,7 @@ static int read_mat(const char *body, Material *out) {
 static int read_light(Scene *scene, const char *body) {
   Light light = {0};
   int end;
-  int rc = sscanf(body, "%lf %lf %lf %d %lf %lf %lf%n\n", &light.pos.x,
+  int rc = sscanf(body, "%f %f %f %d %f %f %f%n\n", &light.pos.x,
                   &light.pos.y, &light.pos.z, &light.w, &light.color.x,
                   &light.color.y, &light.color.z, &end);
 
@@ -62,7 +62,7 @@ static int read_light(Scene *scene, const char *body) {
 static int read_att_light(Scene *scene, const char *body) {
   Light light = {0};
   int end;
-  int rc = sscanf(body, "%lf %lf %lf %d %lf %lf %lf %lf %lf %lf%n\n",
+  int rc = sscanf(body, "%f %f %f %d %f %f %f %f %lf %f%n\n",
                   &light.pos.x, &light.pos.y, &light.pos.z, &light.w,
                   &light.color.x, &light.color.y, &light.color.z, &light.att.x,
                   &light.att.y, &light.att.z, &end);
@@ -80,9 +80,9 @@ static int read_att_light(Scene *scene, const char *body) {
 
 static int read_sphere(Scene *scene, const char *body, Material *curr_color) {
   Vec3 center;
-  double radius;
+  float radius;
   int end;
-  int rc = sscanf(body, "%lf %lf %lf %lf%n\n", &center.x, &center.y, &center.z,
+  int rc = sscanf(body, "%f %f %f %f%n\n", &center.x, &center.y, &center.z,
                   &radius, &end);
 
   if (rc != 4 || !isend(body[end]))
@@ -100,12 +100,12 @@ static int read_sphere(Scene *scene, const char *body, Material *curr_color) {
 static int read_cylinder(Scene *scene, const char *body, Material *curr_color) {
   Vec3 center;
   Vec3 dir;
-  double radius;
-  double length;
+  float radius;
+  float length;
 
   int end;
   int rc =
-      sscanf(body, "%lf %lf %lf %lf %lf %lf %lf %lf%n", &center.x, &center.y,
+      sscanf(body, "%f %f %f %f %f %f %f %f%n", &center.x, &center.y,
              &center.z, &dir.x, &dir.y, &dir.z, &radius, &length, &end);
   if (rc != 8 || !isend(body[end]))
     return INVALID_FORMAT;
@@ -124,7 +124,7 @@ static int read_cylinder(Scene *scene, const char *body, Material *curr_color) {
 static int read_depth_cue(const char *body, DepthCue *out) {
   DepthCue cue;
   int end;
-  int rc = sscanf(body, "%lf %lf %lf %lf %lf %lf %lf%n", &cue.color.x,
+  int rc = sscanf(body, "%f %f %f %f %f %f %f%n", &cue.color.x,
                   &cue.color.y, &cue.color.z, &cue.a_max, &cue.a_min,
                   &cue.dist_max, &cue.dist_min, &end);
   if (rc != 7 || !isend(body[end]))
@@ -138,7 +138,7 @@ static int read_depth_cue(const char *body, DepthCue *out) {
 static int read_vertex(Scene *scene, const char *body) {
   Vec3 v;
   int end;
-  int rc = sscanf(body, "%lf %lf %lf%n", &v.x, &v.y, &v.z, &end);
+  int rc = sscanf(body, "%f %f %f%n", &v.x, &v.y, &v.z, &end);
   if (rc != 3 || !isend(body[end]))
     return INVALID_FORMAT;
 
@@ -149,7 +149,7 @@ static int read_vertex(Scene *scene, const char *body) {
 static int read_vertex_normal(Scene *scene, const char *body) {
   Vec3 v;
   int end;
-  int rc = sscanf(body, "%lf %lf %lf%n", &v.x, &v.y, &v.z, &end);
+  int rc = sscanf(body, "%f %f %f%n", &v.x, &v.y, &v.z, &end);
   if (rc != 3 || !isend(body[end]))
     return INVALID_FORMAT;
 
@@ -160,7 +160,7 @@ static int read_vertex_normal(Scene *scene, const char *body) {
 static int read_vertex_texture(Scene *scene, const char *body) {
   Vec2 v;
   int end;
-  int rc = sscanf(body, "%lf %lf%n", &v.x, &v.y, &end);
+  int rc = sscanf(body, "%f %f%n", &v.x, &v.y, &end);
   if (rc != 2 || !isend(body[end]))
     return INVALID_FORMAT;
 
@@ -348,7 +348,7 @@ static int parse_desc_line(Scene *scene, SceneConfig *config, const char *tag,
     rc = read_vec3(body, &scene->updir);
     config->updir = 1;
   } else if (strcmp(tag, "hfov") == 0) {
-    rc = sscanf(body, "%lf%n", &scene->fov_h, &end) == 1 && isend(body[end])
+    rc = sscanf(body, "%f%n", &scene->fov_h, &end) == 1 && isend(body[end])
              ? LINE_OK
              : INVALID_FORMAT;
     config->hfov = 1;

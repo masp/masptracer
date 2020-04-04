@@ -101,8 +101,9 @@ int main(int argc, char **argv) {
       if (best_inter.t != INFINITY) {
         Color c = scene_shade_ray(scene, &ray, &best_inter);
         pixel_map_put(ppm, x, y, ppm_color_from_color(c));
-      } else
+      } else {
         pixel_map_put(ppm, x, y, ppm_color_from_color(scene->bg_color));
+      }
     }
   }
 

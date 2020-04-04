@@ -1,7 +1,7 @@
 #include "vec.h"
 #include <math.h>
 
-double dot(Vec3 l, Vec3 r) {
+float dot(Vec3 l, Vec3 r) {
   return l.x * r.x + l.y * r.y + l.z * r.z;
 }
 
@@ -13,19 +13,19 @@ Vec3 cross(Vec3 l, Vec3 r) {
   return result;
 }
 
-double veclen(Vec3 v) {
+float veclen(Vec3 v) {
   return sqrt(veclen2(v));
 }
 
-double veclen2(Vec3 v) { return dot(v, v); }
+float veclen2(Vec3 v) { return dot(v, v); }
 
-double dist2(Vec3 start, Vec3 end) {
+float dist2(Vec3 start, Vec3 end) {
   return veclen2(vecsub(end, start));
 }
 
 Vec3 norm(Vec3 v) {
   Vec3 result;
-  double mag = veclen(v);
+  float mag = veclen(v);
   result.x = v.x / mag;
   result.y = v.y / mag;
   result.z = v.z / mag;
@@ -55,7 +55,7 @@ Vec3 vecsub(Vec3 l, Vec3 r) {
   result.z = l.z - r.z;
   return result;
 }
-Vec3 vecmul(Vec3 v, double s) {
+Vec3 vecmul(Vec3 v, float s) {
   Vec3 result = v;
   result.x *= s;
   result.y *= s;
@@ -63,7 +63,7 @@ Vec3 vecmul(Vec3 v, double s) {
   return result;
 }
 
-Vec3 vecdiv(Vec3 v, double s) {
+Vec3 vecdiv(Vec3 v, float s) {
   Vec3 result = v;
   result.x /= s;
   result.y /= s;
@@ -78,7 +78,7 @@ Ray ray_from_line(Vec3 p0, Vec3 p1) {
   return result;
 }
 
-Vec3 ray_pos(Ray *ray, double t) {
+Vec3 ray_pos(Ray *ray, float t) {
   Vec3 result;
   result.x = ray->pos.x + ray->dir.x * t;
   result.y = ray->pos.y + ray->dir.y * t;

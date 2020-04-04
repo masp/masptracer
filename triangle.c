@@ -3,7 +3,7 @@
 
 struct Tri {
   Vec3 p0, p1, p2;
-  double alph, beta, gamm;
+  float alph, beta, gamm;
 };
 
 static int intersects_tri_area_method(Vec3 p, struct Tri *tri, Vec3 e1, Vec3 e2) {
@@ -13,12 +13,12 @@ static int intersects_tri_area_method(Vec3 p, struct Tri *tri, Vec3 e1, Vec3 e2)
   Vec3 e3 = vecsub(tri->p1, p);
   Vec3 e4 = vecsub(tri->p2, p);
 
-  double A = veclen(cross(e1, e2));
-  double a = veclen(cross(e3, e4));
+  float A = veclen(cross(e1, e2));
+  float a = veclen(cross(e3, e4));
   tri->alph = a / A;
-  double b = veclen(cross(e4, e2));
+  float b = veclen(cross(e4, e2));
   tri->beta = b / A;
-  double c = veclen(cross(e1, e3));
+  float c = veclen(cross(e1, e3));
   tri->gamm = c / A;
 
   return fabs(1 - (tri->alph + tri->beta + tri->gamm)) < 0.001
@@ -37,14 +37,14 @@ int ray_intersects_triangle(Scene *scene, Ray *ray, Triangle *tri_def,
   Vec3 e1 = vecsub(tri.p1, tri.p0);
   Vec3 e2 = vecsub(tri.p2, tri.p0);
   Vec3 n = cross(e1, e2);
-  double D = -(dot(n, tri.p0));
+  float D = -(dot(n, tri.p0));
 
   // Do plane intersection, making sure denominator is positive
-  double denom = dot(n, ray->dir);
+  float denom = dot(n, ray->dir);
   if (denom == 0)
     return 0;
-  double nom = -(dot(n, ray->pos) + D);
-  double t = nom / denom;
+  float nom = -(dot(n, ray->pos) + D);
+  float t = nom / denom;
   if (t <= 0)
     return 0;
 

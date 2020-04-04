@@ -46,7 +46,7 @@ Intersection scene_find_best_inter(Scene *scene, Ray *ray) {
 
 static Color calc_diffuse_comp(Color diff_color, Intersection *in, Vec3 L) {
   Color result = {0};
-  double factor = MAX(dot(L, in->norm), 0);
+  float factor = MAX(dot(L, in->norm), 0);
   result = vecadd(result, vecmul(diff_color, in->mat->kd * factor));
   return result;
 }
@@ -56,21 +56,21 @@ static Color calc_specular_comp(Scene *scene, Intersection *in, Vec3 L) {
   Vec3 H = norm(
     vecadd(L, norm(vecsub(scene->camera->eye_pos,
                           in->pos)))); // L and viewdir are always unit length
-  double factor = pow(MAX(dot(in->norm, H), 0), in->mat->n);
+  float factor = pow(MAX(dot(in->norm, H), 0), in->mat->n);
   result = vecadd(result, vecmul(in->mat->spec_color, in->mat->ks * factor));
   return result;
 }
 
-static Color apply_atten(Light *l, Color c, double dist2) {
-  double att_factor =
+static Color apply_atten(Light *l, Color c, float dist2) {
+  float att_factor =
     1 / (l->att.x + l->att.y * sqrt(dist2) + l->att.z * dist2);
   if (att_factor > 1)
     return c; // don't make the light brighter if it's closer!
   return vecmul(c, att_factor);
 }
 
-static Color apply_depth_cueing(Color c, DepthCue *dc, double dist) {
-  double a_dc;
+static Color apply_depth_cueing(Color c, DepthCue *dc, float dist) {
+  float a_dc;
   if (dist <= dc->dist_min)
     a_dc = dc->a_max;
   else if (dist >= dc->dist_max)
@@ -84,7 +84,7 @@ static Color apply_depth_cueing(Color c, DepthCue *dc, double dist) {
   return clamp(vecadd(vecmul(c, a_dc), vecmul(dc->color, 1 - a_dc)));
 }
 
-static double find_ray_param_for_point_on_ray(Ray *r, Vec3 p_on_ray) {
+static float find_ray_param_for_point_on_ray(Ray *r, Vec3 p_on_ray) {
   if (r->dir.x != 0)
     return (p_on_ray.x - r->pos.x) / r->dir.x;
   if (r->dir.y != 0)
@@ -106,7 +106,7 @@ static int calc_shadow_factor(Scene *scene, int is_positional, Vec3 L_pos,
     return 1;
 
   if (is_positional) {
-    double light_t = find_ray_param_for_point_on_ray(&shadow_ray, L_pos);
+    float light_t = find_ray_param_for_point_on_ray(&shadow_ray, L_pos);
     if (shadow_in.t > light_t)
       return 1;
     return 0;
@@ -114,14 +114,14 @@ static int calc_shadow_factor(Scene *scene, int is_positional, Vec3 L_pos,
   return 0;
 }
 
-static double rand_sphere(double radius) {
-  return (-1 + 2 * ((double) rand() / RAND_MAX)) * radius;
+static float rand_sphere(float radius) {
+  return (-1 + 2 * ((float) rand() / RAND_MAX)) * radius;
 }
 
-static double calc_shadow_factor_smooth(Scene *scene, Light *light,
+static float calc_shadow_factor_smooth(Scene *scene, Light *light,
                                         Intersection *in) {
   // The radius of the spherical light source we sample from
-  double light_r = 0.5;
+  float light_r = 0.5;
   const int total_iters = 1;
   int sum = 0;
   if (total_iters > 1)
@@ -139,7 +139,85 @@ static double calc_shadow_factor_smooth(Scene *scene, Light *light,
     Vec3 L = light->w ? norm(vecsub(light->pos, in->pos)) : vecinv(light->pos);
     sum = calc_shadow_factor(scene, light->w, light->pos, L, in);
   }
-  return (double) sum / total_iters;
+  return (float) sum / total_iters;
+}
+
+#define MAX_REFLECT_DEPTH 3
+
+static Color sample_specular_reflection(Scene *scene, Ray *ray, Intersection *in)
+{
+  Color result = {0};
+  if (in->depth >= MAX_REFLECT_DEPTH)
+    return result;
+
+  Vec3 I = vecinv(ray->dir);
+  float a = dot(in->norm, I);
+  Vec3 R = vecsub(vecmul(in->norm, 2 * a), I);
+
+  Ray refl_ray = {
+      .dir = R,
+      .pos = in->pos
+  };
+
+  Intersection new_in = scene_find_best_inter_ignore(scene, &refl_ray, in->obj);
+  if (new_in.t == INFINITY)
+    return result;
+  new_in.depth = in->depth + 1;
+
+  result = scene_shade_ray(scene, &refl_ray, &new_in);
+  float refr_idx = in->mat->idx_of_refraction;
+  float f0 = ((refr_idx - 1)/(refr_idx + 1));
+  f0 = f0 * f0;
+  float fr = f0 + (1 - f0) * pow(1 - dot(I, in->norm), 5);
+  return clamp(vecmul(result, fr));
+}
+
+#define MAX_REFRACT_DEPTH 3
+
+static float get_refra_idx(Material *mat)
+{
+  return mat == NULL ? 1 : mat->idx_of_refraction;
+}
+
+static Color sample_refraction(Scene *scene, Ray *ray, Intersection *in)
+{
+  Color result = {0};
+  if (in->depth >= MAX_REFRACT_DEPTH)
+    return result;
+
+  Vec3 I = vecinv(ray->dir);
+  Vec3 aligned_norm = in->norm;
+  if (dot(in->norm, I) < 0)
+    aligned_norm = vecinv(in->norm);
+  float idx_i = get_refra_idx(in->from_mat);
+  float idx_t = get_refra_idx(in->mat);
+  float snell = idx_i / idx_t;
+  float cos_theta_i = dot(I, aligned_norm);
+
+  float cos_theta_t = sqrt(1 - (snell * snell) * (1 - cos_theta_i * cos_theta_i));
+
+  Vec3 A = vecmul(vecinv(aligned_norm), cos_theta_t);
+  Vec3 B = vecmul((vecsub(vecmul(aligned_norm, cos_theta_i), I)), snell);
+  Vec3 T = vecadd(A, B);
+  Ray new_ray = {
+  	.dir = T,
+  	.pos = in->pos
+  };
+
+  Intersection new_in = scene_find_best_inter(scene, &new_ray);
+  if (new_in.t == INFINITY)
+	return result;
+  new_in.depth = in->depth + 1;
+  // We do a simple alternation between air and the previously intersected material
+  new_in.from_mat = in->from_mat == NULL ? in->mat : NULL;
+
+  result = scene_shade_ray(scene, &new_ray, &new_in);
+  float f0 = ((idx_t - idx_i)/(idx_t + idx_i));
+  f0 = f0 * f0;
+  float fr = f0 + (1 - f0) * pow(1 - cos_theta_i, 5);
+  result = vecmul(result, 1 - fr);
+  result = vecmul(result, 1 - in->mat->opacity);
+  return clamp(result);
 }
 
 Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in) {
@@ -153,15 +231,18 @@ Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in) {
     Light *light = &scene->lights[i];
     Vec3 L = light->w ? norm(vecsub(light->pos, in->pos)) : vecinv(light->pos);
 
+    // Blinn-phong
     Color non_amb_color = {0};
     non_amb_color = clamp(vecadd(non_amb_color, calc_diffuse_comp(diff_color, in, L)));
     non_amb_color =
       clamp(vecadd(non_amb_color, calc_specular_comp(scene, in, L)));
     non_amb_color = elemmul(non_amb_color, light->color);
 
-    double shadow_factor = calc_shadow_factor_smooth(scene, light, in);
+    // Shadow rays
+    float shadow_factor = calc_shadow_factor_smooth(scene, light, in);
     non_amb_color = vecmul(non_amb_color, shadow_factor);
 
+    // Attenuation
     if (light->is_attenuated && veclen2(light->att) > 0)
       non_amb_color =
         apply_atten(light, non_amb_color, dist2(light->pos, in->pos));
@@ -169,10 +250,16 @@ Color scene_shade_ray(Scene *scene, Ray *ray, Intersection *in) {
     result = clamp(vecadd(result, non_amb_color));
   }
 
+  // Depth cueing
   if (scene->depth_cueing_enabled) {
     result = apply_depth_cueing(result, &scene->depth_cueing,
                                 sqrt(dist2(in->pos, scene->camera->eye_pos)));
   }
+
+  // Reflection
+  result = clamp(vecadd(result, sample_specular_reflection(scene, ray, in)));
+  if (in->mat->opacity < 1)
+    result = clamp(vecadd(result, sample_refraction(scene, ray, in)));
 
   return result;
 }

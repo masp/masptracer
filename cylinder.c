@@ -30,11 +30,11 @@ static int cylinder_cap_inter(Cylinder *cyl, Ray *ray, int is_top,
   // ray->dir) = 0 = (cyl->dir dot (ray->pos - center)) + t (cyl->dir dot
   // ray->dir) = 0
   //
-  double a1 = -dot(dir, vecsub(ray->pos, center));
-  double t = a1 / dot(dir, ray->dir);
+  float a1 = -dot(dir, vecsub(ray->pos, center));
+  float t = a1 / dot(dir, ray->dir);
   if (t < 0)
     return 0;
-  double dist = veclen2(vecsub(ray_pos(ray, t), center));
+  float dist = veclen2(vecsub(ray_pos(ray, t), center));
   if (dist > cyl->radius * cyl->radius)
     return 0;
 
@@ -69,22 +69,22 @@ int ray_intersects_cylinder(Scene *scene, Ray *ray, Cylinder *cyl, Intersection 
   Vec3 dp_flat = vecsub(dp, vecmul(cyl->dir, dot(dp, cyl->dir)));
   Vec3 ray_flat = vecsub(ray->dir, vecmul(cyl->dir, dot(ray->dir, cyl->dir)));
 
-  double A = veclen2(ray_flat);
-  double B = 2 * dot(dp_flat, ray_flat);
-  double C = veclen2(dp_flat) - cyl->radius * cyl->radius;
+  float A = veclen2(ray_flat);
+  float B = 2 * dot(dp_flat, ray_flat);
+  float C = veclen2(dp_flat) - cyl->radius * cyl->radius;
 
-  double discriminant = B * B - 4 * A * C;
+  float discriminant = B * B - 4 * A * C;
   if (discriminant < 0)
     return 0; // only evaluate position if collision happens
 
-  double t_cyl1 = (-B - sqrt(discriminant)) / (2 * A);
-  double t_cyl2 = (-B + sqrt(discriminant)) / (2 * A);
+  float t_cyl1 = (-B - sqrt(discriminant)) / (2 * A);
+  float t_cyl2 = (-B + sqrt(discriminant)) / (2 * A);
   if (t_cyl1 < 0 || !in_cylinder(cyl, ray_pos(ray, t_cyl1)))
     t_cyl1 = INFINITY;
   if (t_cyl2 < 0 || !in_cylinder(cyl, ray_pos(ray, t_cyl2)))
     t_cyl2 = INFINITY;
 
-  double best_t = MIN(t_cyl1, t_cyl2);
+  float best_t = MIN(t_cyl1, t_cyl2);
   if (best_t > 0) {
     out->pos = ray_pos(ray, best_t);
     Vec3 dist_from_center = vecsub(out->pos, cyl->center);

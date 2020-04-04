@@ -23,22 +23,23 @@ static inline Vec3 clamp(Vec3 v) {
 typedef struct Material {
   Color diffuse_color;
   Color spec_color;
-  double ka, kd, ks;
+  float ka, kd, ks;
   int n;
   struct PixelMap *texture;
+  float opacity, idx_of_refraction;
 } Material;
 
 typedef struct Sphere {
   Vec3 center;
-  double radius;
+  float radius;
   Material *color;
 } Sphere;
 
 typedef struct Cylinder {
   Vec3 center;
   Vec3 dir;
-  double radius;
-  double height;
+  float radius;
+  float height;
   Material *color;
 } Cylinder;
 
@@ -70,9 +71,11 @@ typedef struct Intersection {
   Material *mat;
   Object *obj;
 
-  double t; // parameter along ray where intersection occurred (used for distance calc)
+  float t; // parameter along ray where intersection occurred (used for distance calc)
   int has_tex_coords;
   Vec2 tex_coords;
+  int depth; // number of times the ray from this intersection has been reflected
+  Material *from_mat; // the material that this intersection is from, NULL if air
 } Intersection;
 
 typedef struct Light {
@@ -85,15 +88,15 @@ typedef struct Light {
 
 typedef struct DepthCue {
   Vec3 color;
-  double a_min, a_max;
-  double dist_min, dist_max;
+  float a_min, a_max;
+  float dist_min, dist_max;
 } DepthCue;
 
 typedef struct Scene {
   Vec3 eye;
   Vec3 viewdir;
   Vec3 updir;
-  double fov_h;
+  float fov_h;
   int pixel_width, pixel_height;
   Color bg_color;
   struct Camera *camera;
