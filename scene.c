@@ -100,8 +100,32 @@ static int calc_shadow_factor(Scene *scene, int is_positional, Vec3 L_pos,
   Ray shadow_ray;
   shadow_ray.pos = in->pos;
   shadow_ray.dir = L;
-  Intersection shadow_in =
-    scene_find_best_inter_ignore(scene, &shadow_ray, in->obj);
+
+
+  for (int oid = 0; oid < scene->objects_len; oid++) {
+    Object *obj = &scene->objects[oid];
+    if (obj == in->obj)
+      continue;
+
+    Intersection inter = {0};
+    if (ray_intersects_object(scene, &shadow_ray, obj, &inter)) {
+      if (is_positional)
+      {
+        float light_t = find_ray_param_for_point_on_ray(&shadow_ray, L_pos);
+        if (inter.t > light_t)
+        {
+
+        }
+
+      }
+      if (inter.t > 0.01 && inter.t < best.t) {
+        best = inter;
+        best.obj = obj;
+      }
+    }
+  }
+  return best;
+
   if (shadow_in.t == INFINITY)
     return 1;
 
@@ -142,7 +166,7 @@ static float calc_shadow_factor_smooth(Scene *scene, Light *light,
   return (float) sum / total_iters;
 }
 
-#define MAX_REFLECT_DEPTH 3
+#define MAX_REFLECT_DEPTH 12
 
 static Color sample_specular_reflection(Scene *scene, Ray *ray, Intersection *in)
 {
@@ -156,7 +180,7 @@ static Color sample_specular_reflection(Scene *scene, Ray *ray, Intersection *in
 
   Ray refl_ray = {
       .dir = R,
-      .pos = in->pos
+      .pos = vecadd(in->pos, vecmul(in->norm, 0.01))
   };
 
   Intersection new_in = scene_find_best_inter_ignore(scene, &refl_ray, in->obj);
@@ -201,7 +225,7 @@ static Color sample_refraction(Scene *scene, Ray *ray, Intersection *in)
   Vec3 T = vecadd(A, B);
   Ray new_ray = {
   	.dir = T,
-  	.pos = in->pos
+  	.pos = vecadd(in->pos, vecmul(T, 0.01))
   };
 
   Intersection new_in = scene_find_best_inter(scene, &new_ray);

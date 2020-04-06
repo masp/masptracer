@@ -31,7 +31,7 @@ static ParseLineResult read_color(const char *body, Color *out) {
 static int read_mat(const char *body, Material *out) {
   Material c = {0};
   int end;
-  int rc = sscanf(body, "%f %f %f %f %lf %f %f %f %f %d %f %f%n",
+  int rc = sscanf(body, "%f %f %f %f %f %f %f %f %f %d %f %f%n",
                   &c.diffuse_color.x, &c.diffuse_color.y, &c.diffuse_color.z,
                   &c.spec_color.x, &c.spec_color.y, &c.spec_color.z, &c.ka,
                   &c.kd, &c.ks, &c.n, &c.opacity, &c.idx_of_refraction, &end);
@@ -62,7 +62,7 @@ static int read_light(Scene *scene, const char *body) {
 static int read_att_light(Scene *scene, const char *body) {
   Light light = {0};
   int end;
-  int rc = sscanf(body, "%f %f %f %d %f %f %f %f %lf %f%n\n",
+  int rc = sscanf(body, "%f %f %f %d %f %f %f %f %f %f%n\n",
                   &light.pos.x, &light.pos.y, &light.pos.z, &light.w,
                   &light.color.x, &light.color.y, &light.color.z, &light.att.x,
                   &light.att.y, &light.att.z, &end);

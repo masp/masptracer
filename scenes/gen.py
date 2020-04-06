@@ -20,7 +20,7 @@ h_step = 1.0 / no_subcylinders
 with open("gen_scene.scene", "w+") as out_scene:
     for (x, y) in points:
         rand_color = colorsys.hsv_to_rgb(h, 1.0, 1.0)
-        out_scene.write("mtlcolor  {:.2f} {:.2f} {:.2f}  1 1 1  0.3 0.5 0.2 30\n".format(
+        out_scene.write("mtlcolor  {:.2f} {:.2f} {:.2f}  1 1 1  0.3 0.5 0.2 30 1 1.7\n".format(
             rand_color[0], rand_color[1], rand_color[2]))
         out_scene.write("cylinder  {:.2f} {:.2f} -10  0 0 1 {:.2f} 50\n".format(x, y, size/2))
         h += h_step

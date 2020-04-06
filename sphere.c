@@ -15,12 +15,12 @@ int ray_intersects_sphere(Scene *scene, Ray *ray, Sphere *sphere, Intersection *
   if (discriminant < 0)
     return 0; // only evaluate position if collision happens
 
-  float t = (-B - sqrt(discriminant)) / (2 * A);
-  // float t_bigger = (-B + sqrt(discriminant)) / (2 * A);
-  // the only time we'd want t_bigger is if t was negative and t_bigger was not.
-  // If t is negative, it means t_bigger is also negative unless the ray is
-  // inside the sphere. We ignore this case and return no intersection if t is
-  // negative (behind eye).
+  float t_smaller = (-B - sqrt(discriminant)) / (2 * A);
+  float t_bigger = (-B + sqrt(discriminant)) / (2 * A);
+  float t = t_smaller;
+  if (t_smaller <= 0 && t_bigger > 0)
+    t = t_bigger;
+
   if (t <= 0)
     return 0;
 
